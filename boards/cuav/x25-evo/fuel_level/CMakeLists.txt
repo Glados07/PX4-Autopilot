@@ -31,6 +31,11 @@
 #
 ############################################################################
 
-add_subdirectory(core_heater)
-add_subdirectory(fuel_level)
-add_subdirectory(pwm_voltage)
+px4_add_module(
+	MODULE drivers__fuel_level
+	MAIN fuel_level
+	SRCS
+		fuel_level.cpp
+	DEPENDS
+		px4_work_queue
+)
