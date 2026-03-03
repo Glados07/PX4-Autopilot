@@ -30,8 +30,11 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 ############################################################################
-
-add_subdirectory(adc6v6)
-add_subdirectory(core_heater)
-add_subdirectory(fuel_level)
-add_subdirectory(pwm_voltage)
+px4_add_module(
+	MODULE drivers__adc6v6
+	MAIN adc6v6
+	SRCS
+		adc6v6.cpp
+	DEPENDS
+		px4_work_queue
+)

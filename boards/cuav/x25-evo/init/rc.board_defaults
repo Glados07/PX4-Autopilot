@@ -37,7 +37,10 @@ core_heater start
 # CUAV pwm voltage 3.3V/5V switch
 pwm_voltage_apply start
 
-# Fuel level estimation (reads ADC_6V6 directly → publishes FUEL_STATUS)
+# CUAV ADC6V6 analog input reader
+adc6v6 start
+
+# Fuel level estimation (reads ADC_3V3 via adc_report → publishes FUEL_STATUS)
 fuel_level start
 
 safety_button start

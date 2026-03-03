@@ -36,17 +36,15 @@
  *
  * Fuel-level estimation module for CUAV X25-EVO.
  *
- * Reads the ADC_6V6 analog input (PF3 / ADC3 channel 5) directly, applies
- * the hardware voltage-divider ratio, then a two-stage linear conversion
- * (ADC port voltage → fuel electrical signal → fuel quantity), and publishes
- * the result as fuel_tank_status for MAVLink FUEL_STATUS forwarding to QGC.
- *
- * The raw ADC port voltage is also published as a debug_key_value message
- * (key "ADC6V6") for monitoring in QGC MAVLink Inspector.
+ * Subscribes to the adc_report uORB topic published by the system ADC driver,
+ * extracts the ADC_3V3 channel (ADC_ADC3_3V3_CHANNEL, ch 13), applies
+ * a two-stage linear conversion (ADC port voltage → fuel electrical signal
+ * → fuel quantity), and publishes the result as fuel_tank_status for
+ * MAVLink FUEL_STATUS forwarding to QGC.
  *
  * Conversion chain
  * ────────────────
- *   0. raw ADC      →  port_voltage :  port_voltage = (raw / full_count) × V_ref × A6V6_V_DIV
+ *   0. raw ADC      →  port_voltage :  port_voltage = (raw / resolution) × v_ref × A3V3_V_DIV
  *
  *   1. port_voltage  →  fuel_signal  :  fuel_signal = port_voltage / FUEL_V_CONV_K
  *      (FUEL_V_CONV_K is the k in y = k·x  where y is port voltage, x is fuel signal)
@@ -65,19 +63,20 @@
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
 
 #include <drivers/drv_hrt.h>
-#include <drivers/drv_adc.h>
-#include <px4_arch/adc.h>
 #include <board_config.h>
 #include <math.h>
+
 #include <string.h>
 
 #include <uORB/Publication.hpp>
+#include <uORB/Subscription.hpp>
+#include <uORB/topics/adc_report.h>
 #include <uORB/topics/debug_key_value.h>
 #include <uORB/topics/fuel_tank_status.h>
 
 using namespace time_literals;
 
-/* Sampling / polling interval — 2 Hz is sufficient for fuel quantity */
+/* Polling interval — fuel quantity changes slowly, 2 Hz is sufficient */
 static constexpr uint32_t FUEL_LEVEL_INTERVAL_US = 500000; /* 2 Hz */
 
 class FuelLevel : public ModuleBase<FuelLevel>, public ModuleParams, public px4::ScheduledWorkItem
@@ -93,11 +92,12 @@ public:
 private:
 	void Run() override;
 
+	uORB::Subscription                     _adc_sub{ORB_ID(adc_report)};
 	uORB::Publication<fuel_tank_status_s>  _fuel_pub{ORB_ID(fuel_tank_status)};
 	uORB::Publication<debug_key_value_s>   _debug_pub{ORB_ID(debug_key_value)};
 
 	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::A6V6_V_DIV>)     _param_v_div,      ///< ADC hardware voltage divider ratio
+		(ParamFloat<px4::params::A3V3_V_DIV>)     _param_v_div,      ///< ADC3V3 hardware voltage divider ratio
 		(ParamFloat<px4::params::FUEL_V_CONV_K>)  _param_v_conv_k,   ///< y=kx scale factor  (port_v / fuel_sig)
 		(ParamFloat<px4::params::FUEL_SIG_FULL>)   _param_sig_full,   ///< fuel-signal voltage at full  (V)
 		(ParamFloat<px4::params::FUEL_SIG_EMPT>)   _param_sig_empt,   ///< fuel-signal voltage at empty (V)
@@ -122,19 +122,43 @@ void FuelLevel::Run()
 	/* Refresh tuneable parameters */
 	updateParams();
 
-	/* ── Read ADC3 channel 5 (PF3 / ADC_6V6) ── */
-	uint32_t raw = px4_arch_adc_sample(STM32_ADC3_BASE, ADC_ADC3_6V6_CHANNEL);
+	/* ── Read ADC_3V3 channel from adc_report ── */
+	adc_report_s adc{};
 
-	if (raw == UINT32_MAX) {
-		/* ADC read failed, retry later */
+	if (!_adc_sub.update(&adc)) {
+		/* No new data yet */
 		ScheduleDelayed(FUEL_LEVEL_INTERVAL_US);
 		return;
 	}
 
-	/* Convert raw → port voltage (0–6.6 V) via hardware divider */
+	/* Find ADC_ADC3_3V3_CHANNEL (ch 13) in the report */
+	int32_t raw = -1;
+
+	for (unsigned i = 0; i < (sizeof(adc.channel_id) / sizeof(adc.channel_id[0])); i++) {
+		if (adc.channel_id[i] == ADC_ADC3_3V3_CHANNEL) {
+			raw = adc.raw_data[i];
+			break;
+		}
+	}
+
+	if (raw < 0) {
+		/* Channel not present in this report */
+		ScheduleDelayed(FUEL_LEVEL_INTERVAL_US);
+		return;
+	}
+
+	/* Convert raw → port voltage via v_ref, resolution and hardware divider */
 	const float divider = _param_v_div.get();
-	const float port_voltage = (static_cast<float>(raw) / static_cast<float>(px4_arch_adc_dn_fullcount()))
-				   * px4_arch_adc_reference_v() * divider;
+	const float port_voltage = (static_cast<float>(raw) / static_cast<float>(adc.resolution))
+				   * adc.v_ref * divider;
+
+	/* ── Publish ADC3V3 port voltage as debug_key_value for QGC monitoring ── */
+	// debug_key_value_s dbg{};
+	// dbg.timestamp = hrt_absolute_time();
+	// strncpy(dbg.key, "ADC3V3", sizeof(dbg.key) - 1);
+	// dbg.key[sizeof(dbg.key) - 1] = '\0';
+	// dbg.value = port_voltage;
+	// _debug_pub.publish(dbg);
 
 	/* ── Stage 1: port voltage → fuel electrical signal ── */
 	const float k = _param_v_conv_k.get();
@@ -150,7 +174,7 @@ void FuelLevel::Run()
 	/* ── Publish converted fuel signal voltage as debug_key_value for QGC monitoring ── */
 	debug_key_value_s dbg{};
 	dbg.timestamp = hrt_absolute_time();
-	strncpy(dbg.key, "FUEL_ANALOG_Voltage", sizeof(dbg.key) - 1);
+	strncpy(dbg.key, "FUEL_SIG_V", sizeof(dbg.key) - 1);
 	dbg.key[sizeof(dbg.key) - 1] = '\0';
 	dbg.value = fuel_signal;
 	_debug_pub.publish(dbg);
@@ -209,14 +233,6 @@ int FuelLevel::task_spawn(int argc, char *argv[])
 	_object.store(instance);
 	_task_id = task_id_is_work_queue;
 
-	/* Ensure ADC3 is initialized (safe to call multiple times — no-op if already init'd) */
-	if (px4_arch_adc_init(STM32_ADC3_BASE) != OK) {
-		PX4_ERR("ADC3 init failed");
-		delete instance;
-		_object.store(nullptr);
-		return PX4_ERROR;
-	}
-
 	instance->ScheduleNow();
 	return PX4_OK;
 }
@@ -232,17 +248,14 @@ int FuelLevel::print_usage(const char *reason)
 ### Description
 Fuel-level estimation module.
 
-Reads the ADC_6V6 analog input (PF3 / ADC3 channel 5) directly, converts
-the voltage to a fuel quantity through two configurable linear stages,
+Subscribes to adc_report and extracts the ADC_3V3 channel voltage,
+converts it to a fuel quantity through two configurable linear stages,
 and publishes fuel_tank_status for MAVLink FUEL_STATUS forwarding.
-
-The raw port voltage is also published as debug_key_value (key "ADC6V6")
-for monitoring in QGC MAVLink Inspector.
 
 #### Conversion stages
 
 0. **Raw ADC → port voltage**
-   port_voltage = (raw / full_count) × V_ref × A6V6_V_DIV
+   port_voltage = (raw / resolution) × v_ref × A3V3_V_DIV
 
 1. **Port voltage → fuel electrical signal**
    fuel_signal = port_voltage / FUEL_V_CONV_K

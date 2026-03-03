@@ -32,20 +32,20 @@
  ****************************************************************************/
 
 /**
- * ADC6V6 hardware voltage divider ratio.
+ * ADC3V3 hardware voltage divider ratio.
  *
- * The ADC_6V6 rail voltage is divided down by a resistor divider to fit
+ * The ADC_3V3 rail voltage is divided down by a resistor divider to fit
  * the 0–3.3 V ADC input range. This parameter specifies the divider
  * ratio used to recover the original rail voltage from the ADC reading.
  *
- * For a 2:1 divider the ratio is 2.0 (default).
+ * Set to 1.0 when there is no external divider (3.3 V direct).
  *
  * @min 0.1
  * @max 20.0
  * @decimal 3
  * @group Fuel Level
  */
-PARAM_DEFINE_FLOAT(A6V6_V_DIV, 2.0f);
+PARAM_DEFINE_FLOAT(A3V3_V_DIV, 1.0f);
 
 /**
  * Fuel-signal ↔ ADC port voltage scale factor (k in y = k·x).
