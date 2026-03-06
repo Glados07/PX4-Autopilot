@@ -101,7 +101,7 @@ private:
 		(ParamFloat<px4::params::FUEL_V_CONV_K>)  _param_v_conv_k,   ///< y=kx scale factor  (port_v / fuel_sig)
 		(ParamFloat<px4::params::FUEL_SIG_FULL>)   _param_sig_full,   ///< fuel-signal voltage at full  (V)
 		(ParamFloat<px4::params::FUEL_SIG_EMPT>)   _param_sig_empt,   ///< fuel-signal voltage at empty (V)
-		(ParamFloat<px4::params::FUEL_MAX_CAP>)    _param_max_cap,    ///< maximum fuel capacity (ml)
+		(ParamFloat<px4::params::FUEL_MAX_CAP>)    _param_max_cap,    ///< maximum fuel capacity (ml or MPa)
 		(ParamInt<px4::params::FUEL_TYPE>)          _param_fuel_type   ///< MAV_FUEL_TYPE enum
 	)
 };
@@ -186,7 +186,7 @@ void FuelLevel::Run()
 	const float span      = sig_full - sig_empty;
 
 	float percent = 0.0f;
-	float remaining_ml = 0.0f;
+	float remaining_fuel = 0.0f;
 
 	if (fabsf(span) > 1e-6f) {
 		percent = (fuel_signal - sig_empty) / span;
@@ -196,17 +196,17 @@ void FuelLevel::Run()
 
 		if (percent > 1.0f) { percent = 1.0f; }
 
-		remaining_ml = percent * max_cap;
+		remaining_fuel = percent * max_cap;
 	}
 
 	/* ── Publish fuel_tank_status ── */
 	fuel_tank_status_s fuel{};
 	fuel.timestamp              = hrt_absolute_time();
 	fuel.maximum_fuel_capacity  = max_cap;
-	fuel.consumed_fuel          = max_cap - remaining_ml;
+	fuel.consumed_fuel          = max_cap - remaining_fuel;
 	fuel.fuel_consumption_rate  = NAN;          /* not measured */
 	fuel.percent_remaining      = static_cast<uint8_t>(percent * 100.0f + 0.5f);
-	fuel.remaining_fuel         = remaining_ml;
+	fuel.remaining_fuel         = remaining_fuel;
 	fuel.fuel_tank_id           = 0;
 	fuel.fuel_type              = static_cast<uint32_t>(_param_fuel_type.get());
 	fuel.temperature            = NAN;          /* not measured */
@@ -260,7 +260,7 @@ and publishes fuel_tank_status for MAVLink FUEL_STATUS forwarding.
 1. **Port voltage → fuel electrical signal**
    fuel_signal = port_voltage / FUEL_V_CONV_K
 
-2. **Fuel signal → fuel quantity (ml)**
+2. **Fuel signal → fuel quantity (ml or MPa)**
    quantity = (fuel_signal − FUEL_SIG_EMPT) / (FUEL_SIG_FULL − FUEL_SIG_EMPT) × FUEL_MAX_CAP
 
 )DESCR_STR");

@@ -31,7 +31,7 @@
 #
 ############################################################################
 
-add_subdirectory(adc6v6)
+add_subdirectory(generator)
 add_subdirectory(core_heater)
 add_subdirectory(fuel_level)
 add_subdirectory(pwm_voltage)

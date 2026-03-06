@@ -31,10 +31,10 @@
 #
 ############################################################################
 px4_add_module(
-	MODULE drivers__adc6v6
-	MAIN adc6v6
+	MODULE drivers__generator
+	MAIN generator
 	SRCS
-		adc6v6.cpp
+		generator.cpp
 	DEPENDS
 		px4_work_queue
 )

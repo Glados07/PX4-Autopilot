@@ -32,10 +32,11 @@
  ****************************************************************************/
 
 /**
- * @file adc6v6.cpp
+ * @file generator.cpp
  *
  * Board-specific module to read ADC3 channel 5 (PF3 / ADC_6V6) on CUAV X25-EVO
- * and publish the voltage via uORB debug_key_value for MAVLink forwarding to QGC.
+ * and publish the generator bus voltage via uORB generator_status for
+ * MAVLink GENERATOR_STATUS forwarding to QGC.
  *
  * The hardware voltage divider ratio is configurable via the A6V6_V_DIV parameter.
  */
@@ -50,21 +51,21 @@
 #include <drivers/drv_adc.h>
 #include <px4_arch/adc.h>
 #include <board_config.h>
-#include <string.h>
+#include <math.h>
 
 #include <uORB/Publication.hpp>
-#include <uORB/topics/debug_key_value.h>
+#include <uORB/topics/generator_status.h>
 
 using namespace time_literals;
 
 /* Sampling interval */
-static constexpr uint32_t ADC6V6_SAMPLE_INTERVAL_US = 100000; /* 10 Hz */
+static constexpr uint32_t GENERATOR_SAMPLE_INTERVAL_US = 100000; /* 10 Hz */
 
-class ADC6V6 : public ModuleBase<ADC6V6>, public ModuleParams, public px4::ScheduledWorkItem
+class Generator : public ModuleBase<Generator>, public ModuleParams, public px4::ScheduledWorkItem
 {
 public:
-	ADC6V6();
-	~ADC6V6() override = default;
+	Generator();
+	~Generator() override = default;
 
 	static int custom_command(int argc, char *argv[]);
 	static int print_usage(const char *reason = nullptr);
@@ -73,20 +74,20 @@ public:
 private:
 	void Run() override;
 
-	uORB::Publication<debug_key_value_s> _debug_pub{ORB_ID(debug_key_value)};
+	uORB::Publication<generator_status_s> _gen_pub{ORB_ID(generator_status)};
 
 	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::A6V6_V_DIV>) _param_v_div   ///< ADC hardware voltage divider ratio
+		(ParamFloat<px4::params::A6V6_V_DIV>) _param_v_div   ///< Generator ADC hardware voltage divider ratio
 	)
 };
 
-ADC6V6::ADC6V6() :
+Generator::Generator() :
 	ModuleParams(nullptr),
 	ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::lp_default)
 {
 }
 
-void ADC6V6::Run()
+void Generator::Run()
 {
 	if (should_exit()) {
 		exit_and_cleanup();
@@ -101,36 +102,44 @@ void ADC6V6::Run()
 
 	if (raw == UINT32_MAX) {
 		/* ADC read failed, retry later */
-		ScheduleDelayed(ADC6V6_SAMPLE_INTERVAL_US);
+		ScheduleDelayed(GENERATOR_SAMPLE_INTERVAL_US);
 		return;
 	}
 
 	/* Convert raw ADC value to voltage, then apply the hardware divider ratio
 	 * to recover the true voltage at the ADC_6V6 port (0 ~ 6.6 V range).
 	 */
-	// const float divider = _param_v_div.get();
-	// float voltage = (static_cast<float>(raw) / static_cast<float>(px4_arch_adc_dn_fullcount()))
-	// 		* px4_arch_adc_reference_v() * divider;
+	const float divider = _param_v_div.get();
+	const float voltage = (static_cast<float>(raw) / static_cast<float>(px4_arch_adc_dn_fullcount()))
+			      * px4_arch_adc_reference_v() * divider;
 
-	/* Publish as debug_key_value → MAVLink NAMED_VALUE_FLOAT → QGC */
-	// debug_key_value_s dbg{};
-	// dbg.timestamp = hrt_absolute_time();
-	// strncpy(dbg.key, "ADC6V6", sizeof(dbg.key) - 1);
-	// dbg.key[sizeof(dbg.key) - 1] = '\0';
-	// dbg.value = voltage;
-	// _debug_pub.publish(dbg);
+	/* Publish as generator_status → MAVLink GENERATOR_STATUS → QGC */
+	generator_status_s gen{};
+	gen.timestamp              = hrt_absolute_time();
+	gen.status                 = generator_status_s::STATUS_FLAG_GENERATING;
+	gen.bus_voltage             = voltage;
+	gen.battery_current         = NAN;
+	gen.load_current            = NAN;
+	gen.power_generated         = NAN;
+	gen.bat_current_setpoint    = NAN;
+	gen.runtime                 = UINT32_MAX;
+	gen.time_until_maintenance  = INT32_MAX;
+	gen.generator_speed         = UINT16_MAX;
+	gen.rectifier_temperature   = INT16_MAX;
+	gen.generator_temperature   = INT16_MAX;
+	_gen_pub.publish(gen);
 
-	ScheduleDelayed(ADC6V6_SAMPLE_INTERVAL_US);
+	ScheduleDelayed(GENERATOR_SAMPLE_INTERVAL_US);
 }
 
-int ADC6V6::custom_command(int argc, char *argv[])
+int Generator::custom_command(int argc, char *argv[])
 {
 	return print_usage("Unrecognized command.");
 }
 
-int ADC6V6::task_spawn(int argc, char *argv[])
+int Generator::task_spawn(int argc, char *argv[])
 {
-	ADC6V6 *instance = new ADC6V6();
+	Generator *instance = new Generator();
 
 	if (!instance) {
 		PX4_ERR("alloc failed");
@@ -152,7 +161,7 @@ int ADC6V6::task_spawn(int argc, char *argv[])
 	return PX4_OK;
 }
 
-int ADC6V6::print_usage(const char *reason)
+int Generator::print_usage(const char *reason)
 {
 	if (reason) {
 		printf("%s\n\n", reason);
@@ -161,24 +170,24 @@ int ADC6V6::print_usage(const char *reason)
 	PRINT_MODULE_DESCRIPTION(
 		R"DESCR_STR(
 ### Description
-Reads the ADC_6V6 analog input (PF3 / ADC3 channel 5) and publishes the voltage
-as a debug_key_value uORB message (key: "ADC6V6").
+Reads the ADC_6V6 analog input (PF3 / ADC3 channel 5) and publishes the
+generator bus voltage via generator_status uORB.
 
 The hardware voltage divider ratio is set via the A6V6_V_DIV parameter.
 
-This is forwarded over MAVLink as NAMED_VALUE_FLOAT and can be viewed in
+This is forwarded over MAVLink as GENERATOR_STATUS and can be viewed in
 QGC → Analyze Tools → MAVLink Inspector.
 
 )DESCR_STR");
 
-	PRINT_MODULE_USAGE_NAME("adc6v6", "driver");
+	PRINT_MODULE_USAGE_NAME("generator", "driver");
 	PRINT_MODULE_USAGE_COMMAND("start");
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;
 }
 
-extern "C" __EXPORT int adc6v6_main(int argc, char *argv[])
+extern "C" __EXPORT int generator_main(int argc, char *argv[])
 {
-	return ADC6V6::main(argc, argv);
+	return Generator::main(argc, argv);
 }

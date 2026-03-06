@@ -32,7 +32,7 @@
  ****************************************************************************/
 
 /**
- * ADC6V6 hardware voltage divider ratio.
+ * Generator ADC hardware voltage divider ratio.
  *
  * The ADC_6V6 rail voltage is divided down by a resistor divider to fit
  * the 0–3.3 V ADC input range. This parameter specifies the divider
@@ -43,6 +43,6 @@
  * @min 0.1
  * @max 20.0
  * @decimal 3
- * @group ADC6V6
+ * @group Generator
  */
 PARAM_DEFINE_FLOAT(A6V6_V_DIV, 2.0f);

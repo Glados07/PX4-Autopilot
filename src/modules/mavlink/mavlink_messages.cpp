@@ -131,6 +131,9 @@
 #if defined(MAVLINK_MSG_ID_FUEL_STATUS)
 #include "streams/FUEL_STATUS.hpp"
 #endif // MAVLINK_MSG_ID_FUEL_STATUS
+#if defined(MAVLINK_MSG_ID_GENERATOR_STATUS)
+#include "streams/GENERATOR_STATUS.hpp"
+#endif // MAVLINK_MSG_ID_GENERATOR_STATUS
 
 #ifdef MAVLINK_MSG_ID_AVAILABLE_MODES // Only defined if development.xml is used
 #include "streams/AVAILABLE_MODES.hpp"
@@ -480,6 +483,9 @@ static const StreamListItem streams_list[] = {
 #if defined(FUEL_STATUS_HPP)
 	create_stream_list_item<MavlinkStreamFuelStatus>(),
 #endif // FUEL_STATUS_HPP
+#if defined(GENERATOR_STATUS_HPP)
+	create_stream_list_item<MavlinkStreamGeneratorStatus>(),
+#endif // GENERATOR_STATUS_HPP
 #if defined(GPS_STATUS_HPP)
 	create_stream_list_item<MavlinkStreamGPSStatus>(),
 #endif // GPS_STATUS_HPP

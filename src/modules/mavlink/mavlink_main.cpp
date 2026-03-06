@@ -1467,6 +1467,9 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 #if defined(MAVLINK_MSG_ID_FUEL_STATUS)
 		configure_stream_local("FUEL_STATUS", 1.0f);
 #endif // MAVLINK_MSG_ID_FUEL_STATUS
+#if defined(MAVLINK_MSG_ID_GENERATOR_STATUS)
+		configure_stream_local("GENERATOR_STATUS", 1.0f);
+#endif // MAVLINK_MSG_ID_GENERATOR_STATUS
 #endif // !CONSTRAINED_FLASH
 
 		break;
@@ -1539,6 +1542,9 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 #if defined(MAVLINK_MSG_ID_FUEL_STATUS)
 		configure_stream_local("FUEL_STATUS", 1.0f);
 #endif // MAVLINK_MSG_ID_FUEL_STATUS
+#if defined(MAVLINK_MSG_ID_GENERATOR_STATUS)
+		configure_stream_local("GENERATOR_STATUS", 1.0f);
+#endif // MAVLINK_MSG_ID_GENERATOR_STATUS
 #endif // !CONSTRAINED_FLASH
 
 		break;
@@ -1605,6 +1611,9 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 #if defined(MAVLINK_MSG_ID_FUEL_STATUS)
 		configure_stream_local("FUEL_STATUS", 1.0f);
 #endif // MAVLINK_MSG_ID_FUEL_STATUS
+#if defined(MAVLINK_MSG_ID_GENERATOR_STATUS)
+		configure_stream_local("GENERATOR_STATUS", 1.0f);
+#endif // MAVLINK_MSG_ID_GENERATOR_STATUS
 #endif // !CONSTRAINED_FLASH
 
 		break;
@@ -1709,6 +1718,9 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 #if defined(MAVLINK_MSG_ID_FUEL_STATUS)
 		configure_stream_local("FUEL_STATUS", 2.0f);
 #endif // MAVLINK_MSG_ID_FUEL_STATUS
+#if defined(MAVLINK_MSG_ID_GENERATOR_STATUS)
+		configure_stream_local("GENERATOR_STATUS", 2.0f);
+#endif // MAVLINK_MSG_ID_GENERATOR_STATUS
 #endif // !CONSTRAINED_FLASH
 
 		break;
@@ -1798,6 +1810,9 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 #if defined(MAVLINK_MSG_ID_FUEL_STATUS)
 		configure_stream_local("FUEL_STATUS", 1.0f);
 #endif // MAVLINK_MSG_ID_FUEL_STATUS
+#if defined(MAVLINK_MSG_ID_GENERATOR_STATUS)
+		configure_stream_local("GENERATOR_STATUS", 1.0f);
+#endif // MAVLINK_MSG_ID_GENERATOR_STATUS
 #endif // !CONSTRAINED_FLASH
 		break;
 

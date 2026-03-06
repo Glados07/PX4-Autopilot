@@ -80,7 +80,7 @@ PARAM_DEFINE_FLOAT(FUEL_V_CONV_K, 1.0f);
  * @decimal 2
  * @group Fuel Level
  */
-PARAM_DEFINE_FLOAT(FUEL_SIG_FULL, 6.6f);
+PARAM_DEFINE_FLOAT(FUEL_SIG_FULL, 3.3f);
 
 /**
  * Fuel-signal voltage at empty tank (V).
@@ -98,9 +98,10 @@ PARAM_DEFINE_FLOAT(FUEL_SIG_FULL, 6.6f);
 PARAM_DEFINE_FLOAT(FUEL_SIG_EMPT, 0.0f);
 
 /**
- * Maximum fuel capacity (ml).
+ * Maximum fuel capacity (ml or MPa).
  *
- * The total fuel capacity of the tank in millilitres.
+ * The total fuel capacity of the tank in millilitres (liquid) or
+ * the maximum pressure in megapascals (gas).
  * Used to convert the fuel percentage into an absolute
  * remaining-fuel value published in fuel_tank_status.
  *
@@ -109,12 +110,12 @@ PARAM_DEFINE_FLOAT(FUEL_SIG_EMPT, 0.0f);
  * @decimal 0
  * @group Fuel Level
  */
-PARAM_DEFINE_FLOAT(FUEL_MAX_CAP, 1000.0f);
+PARAM_DEFINE_FLOAT(FUEL_MAX_CAP, 50.0f);
 
 /**
  * Fuel type (MAV_FUEL_TYPE enum).
  *
- * 0 = Unknown, 1 = Liquid (ml), 2 = Gas (kPa).
+ * 0 = Unknown, 1 = Liquid (ml), 2 = Gas (MPa).
  *
  * @value 0 Unknown
  * @value 1 Liquid
@@ -123,4 +124,4 @@ PARAM_DEFINE_FLOAT(FUEL_MAX_CAP, 1000.0f);
  * @max 2
  * @group Fuel Level
  */
-PARAM_DEFINE_INT32(FUEL_TYPE, 1);
+PARAM_DEFINE_INT32(FUEL_TYPE, 2);
